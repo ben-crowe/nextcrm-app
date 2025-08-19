@@ -1,0 +1,181 @@
+// QR NextCRM Prisma Schema - Hybrid approach with essential NextAuth models
+// Modified for PostgreSQL/Supabase + QR customizations
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// NextAuth Required Models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verificationtokens")
+}
+
+// Core User Management (compatible with NextAuth)
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime? @map("email_verified")
+  image         String?
+  password      String?
+  role          String    @default("user")
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  accounts      Account[]
+  sessions      Session[]
+  
+  // QR Relations
+  assignedOrders Order[] @relation("AssignedUser")
+  createdOrders  Order[] @relation("CreatedByUser")
+
+  @@map("users")
+}
+
+// QR-Specific Order Management (Main CRM Entity)
+model Order {
+  id                    String   @id @default(uuid())
+  name                  String
+  poNumber              String?  @map("po_number")
+  customer              String?
+  customerEmail         String?  @map("customer_email")
+  orderValue            Decimal? @map("order_value") @db.Decimal(12,2)
+  orderDate             DateTime? @map("order_date")
+  shipDate              DateTime? @map("ship_date")
+  currentStatus         String?  @map("current_status")
+  originalEta           DateTime? @map("original_eta")
+  currentEta            DateTime? @map("current_eta")
+  customerToldDate      DateTime? @map("customer_told_date")
+  etaChanged            Boolean? @map("eta_changed") @default(false)
+  communicationStatus   String?  @map("communication_status")
+  actionNeeded          String?  @map("action_needed")
+  
+  // System fields
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+  createdBy             String?  @map("created_by")
+  assignedTo            String?  @map("assigned_to")
+  
+  // Relations
+  creator               User?    @relation("CreatedByUser", fields: [createdBy], references: [id])
+  assignee              User?    @relation("AssignedUser", fields: [assignedTo], references: [id])
+  
+  // Email communication history
+  emails                OrderEmail[]
+  
+  @@map("orders")
+}
+
+// Email Communications linked to Orders
+model OrderEmail {
+  id                String   @id @default(uuid())
+  orderId           String   @map("order_id")
+  emailId           String?  @map("email_id") // Link to external email system
+  subject           String
+  sender            String
+  recipient         String
+  content           String?
+  snippet           String?
+  emailDate         DateTime @map("email_date")
+  relevanceScore    Float?   @map("relevance_score")
+  
+  createdAt         DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  order             Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  @@map("order_emails")
+}
+
+// Essential NextCRM Models (minimal for compatibility)
+model crm_Accounts {
+  id          String   @id @default(uuid())
+  name        String
+  email       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  @@map("crm_accounts")
+}
+
+model crm_Contacts {
+  id          String   @id @default(uuid())
+  name        String
+  email       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  @@map("crm_contacts")
+}
+
+// QR Product Categories
+model ProductCategory {
+  id                String @id @default(uuid())
+  name              String @unique
+  description       String?
+  
+  products          Product[]
+  
+  @@map("product_categories")
+}
+
+// QR Products  
+model Product {
+  id                String @id @default(uuid())
+  name              String
+  sku               String? @unique
+  description       String?
+  categoryId        String? @map("category_id")
+  unitPrice         Decimal? @map("unit_price") @db.Decimal(10,2)
+  inStock           Boolean @default(true) @map("in_stock")
+  
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  category          ProductCategory? @relation(fields: [categoryId], references: [id])
+  
+  @@map("products")
+}

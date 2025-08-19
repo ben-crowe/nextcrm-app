@@ -14,6 +14,12 @@ import MessageToAllUsers from "@/emails/admin/MessageToAllUser";
 import sendEmail from "@/lib/sendmail";
 
 const handler = async (data: InputType): Promise<ReturnType> => {
+  // Temporarily disabled for deployment - TODO: Implement after schema is complete
+  return {
+    error: "Feature temporarily disabled during QR migration.",
+  };
+
+  /*
   const session = await getServerSession(authOptions);
 
   if (!session) {
@@ -40,68 +46,17 @@ const handler = async (data: InputType): Promise<ReturnType> => {
   }
 
   try {
-    const users = await prismadb.users.findMany({
-      /*       where: {
-        email: {
-          //contains: "pavel@softbase.cz",
-          equals: "pavel@softbase.cz",
-        },
-      }, */
+    const users = await prismadb.user.findMany({
+      // where: {
+      //   email: {
+      //     //contains: "pavel@softbase.cz",
+      //     equals: "pavel@softbase.cz",
+      //   },
+      // },
     });
-    //console.log(users.length, "user.length");
-
-    //For each user, send mail
-    for (const user of users) {
-      const resendKey = await prismadb.systemServices.findFirst({
-        where: {
-          name: "resend_smtp",
-        },
-      });
-
-      if (!resendKey?.serviceKey || !process.env.RESEND_API_KEY) {
-        const emailHtml = render(
-          MessageToAllUsers({
-            title: title,
-            message: message,
-            username: user?.name!,
-          })
-        );
-
-        //send via sendmail
-        await sendEmail({
-          from: process.env.EMAIL_FROM as string,
-          to: user.email || "info@softbase.cz",
-          subject: title,
-          text: message,
-          html: await emailHtml,
-        });
-      }
-
-      //send via Resend.com
-      await resend.emails.send({
-        from:
-          process.env.NEXT_PUBLIC_APP_NAME +
-          " <" +
-          process.env.EMAIL_FROM +
-          ">",
-        to: user?.email!,
-        subject: title,
-        text: message, // Add this line to fix the types issue
-        react: MessageToAllUsers({
-          title: title,
-          message: message,
-          username: user?.name!,
-        }),
-      });
-    }
-  } catch (error) {
-    console.log(error);
-    return {
-      error: "Failed to send mail to all users.",
-    };
-  }
-
-  return { data: { title: title, message: message } };
+    
+    // All code commented out for deployment
+    */
 };
 
 export const sendMailToAll = createSafeAction(SendMailToAll, handler);

@@ -1,5 +1,5 @@
-// QR NextCRM Prisma Schema - Customized for Quarantine Restraints Logistics
-// Modified for PostgreSQL/Supabase instead of MongoDB
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
@@ -11,174 +11,652 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// Core User Management
-model User {
-  id          String   @id @default(uuid())
-  email       String   @unique
-  name        String?
-  password    String?
-  role        String   @default("user")
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // QR Relations
-  assignedOrders Order[] @relation("AssignedUser")
-  createdOrders  Order[] @relation("CreatedByUser")
-  
-  @@map("users")
+model crm_Accounts {
+  id                   String               @id @default(uuid())
+  v                    Int                  @map("__v")
+  createdAt            DateTime             @default(now())
+  createdBy            String?
+  updatedAt            DateTime?            @updatedAt
+  updatedBy            String?
+  annual_revenue       String?
+  assigned_to          String?
+  billing_city         String?
+  billing_country      String?
+  billing_postal_code  String?
+  billing_state        String?
+  billing_street       String?
+  company_id           String?
+  description          String?
+  email                String?
+  employees            String?
+  fax                  String?
+  industry             String?
+  member_of            String?
+  name                 String
+  office_phone         String?
+  shipping_city        String?
+  shipping_country     String?
+  shipping_postal_code String?
+  shipping_state       String?
+  shipping_street      String?
+  status               String?              @default("Inactive")
+  type                 String?              @default("Customer")
+  vat                  String?
+  website              String?
+  invoices             Invoices[]
+  documentsIDs         String[]
+  assigned_documents   Documents[]          @relation(fields: [documentsIDs], references: [id])
+  contacts             crm_Contacts[]
+  leads                crm_Leads[]
+  industry_type        crm_Industry_Type?   @relation(fields: [industry], references: [id])
+  opportunities        crm_Opportunities[]
+  assigned_to_user     Users?               @relation(fields: [assigned_to], references: [id])
+  crm_accounts_tasks   crm_Accounts_Tasks[]
+  contracts            crm_Contracts[]
+  watchers             String[]
+  watching_users       Users[]              @relation(name: "watching_accounts", fields: [watchers], references: [id])
 }
 
-// QR-Specific Order Management (Main CRM Entity)
-model Order {
-  id                    String   @id @default(uuid())
-  name                  String
-  poNumber              String?  @map("po_number")
-  customer              String?
-  customerEmail         String?  @map("customer_email")
-  orderValue            Decimal? @map("order_value") @db.Decimal(12,2)
-  orderDate             DateTime? @map("order_date")
-  shipDate              DateTime? @map("ship_date")
-  currentStatus         String?  @map("current_status")
-  originalEta           DateTime? @map("original_eta")
-  currentEta            DateTime? @map("current_eta")
-  customerToldDate      DateTime? @map("customer_told_date")
-  etaChanged            Boolean? @map("eta_changed") @default(false)
-  communicationStatus   String?  @map("communication_status")
-  actionNeeded          String?  @map("action_needed")
-  
-  // System fields
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
-  createdBy             String?  @map("created_by")
-  assignedTo            String?  @map("assigned_to")
-  
-  // Relations
-  creator               User?    @relation("CreatedByUser", fields: [createdBy], references: [id])
-  assignee              User?    @relation("AssignedUser", fields: [assignedTo], references: [id])
-  
-  // Email communication history
-  emails                OrderEmail[]
-  
-  @@map("orders")
+model crm_Leads {
+  id String @id @default(uuid())
+  v  Int    @default(0) @map("__v")
+
+  createdAt          DateTime?     @default(now())
+  createdBy          String?
+  updatedAt          DateTime?     @updatedAt
+  updatedBy          String?
+  firstName          String?
+  lastName           String
+  company            String?
+  jobTitle           String?
+  email              String?
+  phone              String?
+  description        String?
+  lead_source        String?
+  refered_by         String?
+  campaign           String?
+  status             String?       @default("NEW")
+  type               String?       @default("DEMO")
+  assigned_to        String?
+  assigned_to_user   Users?        @relation(fields: [assigned_to], references: [id])
+  accountsIDs        String?
+  assigned_accounts  crm_Accounts? @relation(fields: [accountsIDs], references: [id])
+  documentsIDs       String[]
+  assigned_documents Documents[]   @relation(fields: [documentsIDs], references: [id])
 }
 
-// Email Communications linked to Orders
-model OrderEmail {
-  id                String   @id @default(uuid())
-  orderId           String   @map("order_id")
-  emailId           String?  @map("email_id") // Link to external email system
-  subject           String
-  sender            String
-  recipient         String
-  content           String?
-  snippet           String?
-  emailDate         DateTime @map("email_date")
-  relevanceScore    Float?   @map("relevance_score")
-  
-  createdAt         DateTime @default(now()) @map("created_at")
-  
-  // Relations
-  order             Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  
-  @@map("order_emails")
+enum crm_Lead_Status {
+  NEW
+  CONTACTED
+  QUALIFIED
+  LOST
 }
 
-// QR Product Categories
-model ProductCategory {
-  id                String @id @default(uuid())
-  name              String @unique
-  description       String?
-  
-  products          Product[]
-  
-  @@map("product_categories")
+enum crm_Lead_Type {
+  DEMO
 }
 
-// QR Products
-model Product {
-  id                String @id @default(uuid())
+model crm_Opportunities {
+  id                   String                          @id @default(uuid())
+  v                    Int                             @default(0) @map("__v")
+  account              String?
+  assigned_to          String?
+  budget               Int                             @default(0)
+  campaign             String?
+  close_date           DateTime?
+  contact              String?
+  created_by           String?
+  createdBy            String?
+  created_on           DateTime?                       @default(now())
+  createdAt            DateTime                        @default(now())
+  last_activity        DateTime?
+  updatedAt            DateTime?                       @updatedAt
+  updatedBy            String?
+  last_activity_by     String?
+  currency             String?
+  description          String?
+  expected_revenue     Int                             @default(0)
+  name                 String?
+  next_step            String?
+  sales_stage          String?
+  type                 String?
+  status               crm_Opportunity_Status?         @default(ACTIVE)
+  assigned_type        crm_Opportunities_Type?         @relation(fields: [type], references: [id])
+  assigned_sales_stage crm_Opportunities_Sales_Stages? @relation(name: "assinged_sales_stage", fields: [sales_stage], references: [id])
+  assigned_to_user     Users?                          @relation(name: "assigned_to_user_relation", fields: [assigned_to], references: [id])
+  created_by_user      Users?                          @relation(name: "created_by_user_relation", fields: [created_by], references: [id])
+  assigned_account     crm_Accounts?                   @relation(fields: [account], references: [id])
+  assigned_campaings   crm_campaigns?                  @relation(fields: [campaign], references: [id])
+  connected_documents  String[]
+  documents            Documents[]                     @relation(fields: [connected_documents], references: [id])
+  connected_contacts   String[]
+  contacts             crm_Contacts[]                  @relation(fields: [connected_contacts], references: [id])
+}
+
+enum crm_Opportunity_Status {
+  ACTIVE
+  INACTIVE
+  PENDING
+  CLOSED
+}
+
+model crm_campaigns {
+  id            String              @id @default(uuid())
+  v             Int                 @map("__v")
+  name          String
+  description   String?
+  status        String?
+  opportunities crm_Opportunities[]
+}
+
+model crm_Opportunities_Sales_Stages {
+  id                                 String              @id @default(uuid())
+  v                                  Int                 @map("__v")
+  name                               String
+  probability                        Int?
+  order                              Int?
+  assigned_opportunities_sales_stage crm_Opportunities[] @relation(name: "assinged_sales_stage")
+}
+
+model crm_Opportunities_Type {
+  id                     String              @id @default(uuid())
+  v                      Int                 @map("__v")
+  name                   String
+  order                  Int?
+  assigned_opportunities crm_Opportunities[]
+}
+
+model crm_Contacts {
+  id                     String              @id @default(uuid())
+  v                      Int                 @default(0) @map("__v")
+  account                String?
+  assigned_to            String?
+  birthday               String?
+  created_by             String?
+  createdBy              String?
+  created_on             DateTime?           @default(now())
+  cratedAt               DateTime?           @default(now())
+  last_activity          DateTime?           @default(now())
+  updatedAt              DateTime?           @updatedAt
+  updatedBy              String?
+  last_activity_by       String?
+  description            String?
+  email                  String?
+  personal_email         String?
+  first_name             String?
+  last_name              String
+  office_phone           String?
+  mobile_phone           String?
+  website                String?
+  position               String?
+  status                 Boolean             @default(true)
+  social_twitter         String?
+  social_facebook        String?
+  social_linkedin        String?
+  social_skype           String?
+  social_instagram       String?
+  social_youtube         String?
+  social_tiktok          String?
+  type                   String?             @default("Customer")
+  tags                   String[]
+  notes                  String[]
+  assigned_to_user       Users?              @relation(name: "assigned_contacts", fields: [assigned_to], references: [id])
+  crate_by_user          Users?              @relation(name: "created_contacts", fields: [created_by], references: [id])
+  opportunitiesIDs       String[]
+  assigned_opportunities crm_Opportunities[] @relation(fields: [opportunitiesIDs], references: [id])
+  accountsIDs            String?
+  assigned_accounts      crm_Accounts?       @relation(fields: [accountsIDs], references: [id])
+  documentsIDs           String[]
+  assigned_documents     Documents[]         @relation(fields: [documentsIDs], references: [id])
+}
+
+enum crm_Contact_Type {
+  Customer
+  Partner
+  Vendor
+  Prospect
+}
+
+model crm_Contracts {
+  id                  String               @id @default(uuid())
+  v                   Int                  @map("__v")
+  title               String
+  value               Int
+  startDate           DateTime?            @default(now())
+  endDate             DateTime?
+  renewalReminderDate DateTime?
+  customerSignedDate  DateTime?
+  companySignedDate   DateTime?
+  description         String?
+  account             String?
+  assigned_to         String?
+  createdAt           DateTime?            @default(now())
+  createdBy           String?
+  updatedAt           DateTime?            @updatedAt
+  updatedBy           String?
+  status              crm_Contracts_Status @default(NOTSTARTED)
+  type                String?
+  assigned_account    crm_Accounts?        @relation(fields: [account], references: [id])
+  assigned_to_user    Users?               @relation(fields: [assigned_to], references: [id])
+}
+
+enum crm_Contracts_Status {
+  NOTSTARTED
+  INPROGRESS
+  SIGNED
+}
+
+model Boards {
+  id                String    @id @default(uuid())
+  v                 Int       @map("__v")
+  description       String
+  favourite         Boolean?
+  favouritePosition Int?
+  icon              String?
+  position          Int?
+  title             String
+  user              String
+  visibility        String?
+  sharedWith        String[]
+  createdAt         DateTime? @default(now())
+  createdBy         String?
+  updatedAt         DateTime? @updatedAt
+  updatedBy         String?
+
+  //Create watechers field for board. It will be array of users
+  watchers       String[]
+  assigned_user  Users?   @relation(name: "assigned_user", fields: [user], references: [id])
+  watchers_users Users[]  @relation(name: "watching_users", fields: [watchers], references: [id])
+}
+
+model Employees {
+  id     String  @id @default(uuid())
+  v      Int     @map("__v")
+  avatar String
+  email  String?
+  name   String
+  salary Int
+  status String
+}
+
+model ImageUpload {
+  id String @id @default(uuid())
+}
+
+model MyAccount {
+  id                   String  @id @default(uuid())
+  v                    Int     @map("__v")
+  company_name         String
+  is_person            Boolean @default(false)
+  email                String?
+  email_accountant     String?
+  phone_prefix         String?
+  phone                String?
+  mobile_prefix        String?
+  mobile               String?
+  fax_prefix           String?
+  fax                  String?
+  website              String?
+  // office Address
+  street               String?
+  city                 String?
+  state                String?
+  zip                  String?
+  country              String?
+  country_code         String?
+  // billing Address
+  billing_street       String?
+  billing_city         String?
+  billing_state        String?
+  billing_zip          String?
+  billing_country      String?
+  billing_country_code String?
+  //other
+  currency             String?
+  currency_symbol      String?
+  VAT_number           String
+  TAX_number           String?
+  bank_name            String?
+  bank_account         String?
+  bank_code            String?
+  bank_IBAN            String?
+  bank_SWIFT           String?
+}
+
+model Invoices {
+  id                            String          @id @default(uuid())
+  v                             Int?            @map("__v")
+  date_created                  DateTime        @default(now())
+  last_updated                  DateTime        @updatedAt
+  last_updated_by               String?
+  date_received                 DateTime?       @default(now())
+  date_of_case                  DateTime?
+  date_tax                      DateTime?
+  date_due                      DateTime?
+  description                   String?
+  document_type                 String?
+  favorite                      Boolean?        @default(false)
+  variable_symbol               String?
+  constant_symbol               String?
+  specific_symbol               String?
+  order_number                  String?
+  internal_number               String?
+  invoice_number                String?
+  invoice_amount                String?
+  invoice_file_mimeType         String
+  invoice_file_url              String
+  invoice_items                 Json?
+  invoice_type                  String?
+  invoice_currency              String?
+  invoice_language              String?
+  partner                       String?
+  partner_street                String?
+  partner_city                  String?
+  partner_zip                   String?
+  partner_country               String?
+  partner_country_code          String?
+  partner_business_street       String?
+  partner_business_city         String?
+  partner_business_zip          String?
+  partner_business_country      String?
+  partner_business_country_code String?
+  partner_VAT_number            String?
+  partner_TAX_number            String?
+  partner_TAX_local_number      String?
+  partner_phone_prefix          String?
+  partner_phone_number          String?
+  partner_fax_prefix            String?
+  partner_fax_number            String?
+  partner_email                 String?
+  partner_website               String?
+  partner_is_person             Boolean?
+  partner_bank                  String?
+  partner_account_number        String?
+  partner_account_bank_number   String?
+  partner_IBAN                  String?
+  partner_SWIFT                 String?
+  partner_BIC                   String?
+  rossum_status                 String?
+  rossum_annotation_id          String?
+  rossum_annotation_url         String?
+  rossum_document_id            String?
+  rossum_document_url           String?
+  rossum_annotation_json_url    String?
+  rossum_annotation_xml_url     String?
+  money_s3_url                  String?
+  status                        String?
+  invoice_state_id              String?
+  assigned_user_id              String?
+  assigned_account_id           String?
+  visibility                    Boolean         @default(true)
+  invoice_states                invoice_States? @relation(fields: [invoice_state_id], references: [id])
+  users                         Users?          @relation(fields: [assigned_user_id], references: [id])
+  accounts                      crm_Accounts?   @relation(fields: [assigned_account_id], references: [id])
+  connected_documents           String[]
+  documents                     Documents[]     @relation(fields: [connected_documents], references: [id])
+}
+
+model invoice_States {
+  id                String     @id @default(uuid())
   name              String
-  sku               String? @unique
-  description       String?
-  categoryId        String? @map("category_id")
-  unitPrice         Decimal? @map("unit_price") @db.Decimal(10,2)
-  inStock           Boolean @default(true) @map("in_stock")
-  
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  category          ProductCategory? @relation(fields: [categoryId], references: [id])
-  orderItems        OrderItem[]
-  
-  @@map("products")
+  assigned_invoices Invoices[]
 }
 
-// Order Line Items
-model OrderItem {
-  id                String @id @default(uuid())
-  orderId           String @map("order_id")
-  productId         String? @map("product_id")
-  productName       String @map("product_name")
-  quantity          Int @default(1)
-  unitPrice         Decimal? @map("unit_price") @db.Decimal(10,2)
-  totalPrice        Decimal? @map("total_price") @db.Decimal(12,2)
-  
-  // Relations - Note: Order relation needs to be added to Order model
-  product           Product? @relation(fields: [productId], references: [id])
-  
-  @@map("order_items")
+model Documents {
+  id                     String              @id @default(uuid())
+  v                      Int?                @map("__v")
+  date_created           DateTime?           @default(now())
+  createdAt              DateTime?           @default(now())
+  last_updated           DateTime?           @updatedAt
+  updatedAt              DateTime?           @updatedAt
+  document_name          String
+  created_by_user        String?
+  createdBy              String?
+  description            String?
+  document_type          String?
+  favourite              Boolean?
+  document_file_mimeType String
+  document_file_url      String
+  status                 String?
+  visibility             String?
+  tags                   Json?
+  key                    String?
+  size                   Int?
+  assigned_user          String?
+  connected_documents    String[]
+  invoiceIDs             String[]
+  opportunityIDs         String[]
+  contactsIDs            String[]
+  tasksIDs               String[]
+  crm_accounts_tasksIDs  String[]
+  leadsIDs               String[]
+  accountsIDs            String[]
+  invoices               Invoices[]          @relation(fields: [invoiceIDs], references: [id])
+  opportunities          crm_Opportunities[] @relation(fields: [opportunityIDs], references: [id])
+  contacts               crm_Contacts[]      @relation(fields: [contactsIDs], references: [id])
+  tasks                  Tasks[]             @relation(fields: [tasksIDs], references: [id])
+  crm_accounts_tasks     crm_Accounts_Tasks? @relation(fields: [crm_accounts_tasksIDs], references: [id])
+  leads                  crm_Leads[]         @relation(fields: [leadsIDs], references: [id])
+  accounts               crm_Accounts[]      @relation(fields: [accountsIDs], references: [id])
+  created_by             Users?              @relation(name: "created_by_user", fields: [created_by_user], references: [id])
+  assigned_to_user       Users?              @relation(name: "assigned_to_user", fields: [assigned_user], references: [id])
+  documents_type         Documents_Types?    @relation(fields: [document_type], references: [id])
+  document_system_type   DocumentSystemType? @default(OTHER)
 }
 
-// QR Customer Management
-model Customer {
-  id                String @id @default(uuid())
-  name              String
-  company           String?
-  email             String? @unique
-  phone             String?
-  address           String?
-  city              String?
-  state             String?
-  country           String? @default("Canada")
-  postalCode        String? @map("postal_code")
-  
-  // Customer type (Government, Private, etc.)
-  customerType      String? @map("customer_type")
-  paymentTerms      String? @map("payment_terms")
-  creditLimit       Decimal? @map("credit_limit") @db.Decimal(10,2)
-  
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
-  
-  @@map("customers")
+enum DocumentSystemType {
+  INVOICE
+  RECEIPT
+  CONTRACT
+  OFFER
+  OTHER
 }
 
-// System Configuration
-model SystemConfig {
-  id                String @id @default(uuid())
-  key               String @unique
-  value             String
-  description       String?
-  category          String? @default("general")
-  
-  updatedAt         DateTime @updatedAt @map("updated_at")
-  
-  @@map("system_config")
+model Documents_Types {
+  id                 String      @id @default(uuid())
+  v                  Int         @map("__v")
+  name               String
+  assigned_documents Documents[]
 }
 
-// Communication Templates
-model EmailTemplate {
-  id                String @id @default(uuid())
-  name              String
-  subject           String
-  body              String
-  templateType      String @map("template_type") // order_confirmation, eta_update, etc.
-  active            Boolean @default(true)
-  
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
-  
-  @@map("email_templates")
+model Sections {
+  id       String  @id @default(uuid())
+  v        Int     @map("__v")
+  board    String
+  title    String
+  position Int?
+  tasks    Tasks[]
+}
+
+model crm_Industry_Type {
+  id       String         @id @default(uuid())
+  v        Int            @map("__v")
+  name     String
+  accounts crm_Accounts[]
+}
+
+model modulStatus {
+  id        String  @id @default(uuid())
+  name      String
+  isVisible Boolean
+}
+
+model Tasks {
+  id               String          @id @default(uuid())
+  v                Int             @map("__v")
+  content          String?
+  createdAt        DateTime?       @default(now())
+  createdBy        String?
+  updatedAt        DateTime?       @updatedAt
+  updatedBy        String?
+  dueDateAt        DateTime?       @default(now())
+  lastEditedAt     DateTime?       @default(now()) @updatedAt
+  position         Int
+  priority         String
+  section          String?
+  tags             Json?
+  title            String
+  likes            Int?            @default(0)
+  user             String?
+  documentIDs      String[]
+  comments         tasksComments[]
+  documents        Documents[]     @relation(fields: [documentIDs], references: [id])
+  assigned_user    Users?          @relation(fields: [user], references: [id])
+  assigned_section Sections?       @relation(fields: [section], references: [id])
+  //Staus
+  taskStatus       taskStatus?     @default(ACTIVE)
+}
+
+model crm_Accounts_Tasks {
+  id            String          @id @default(uuid())
+  v             Int             @map("__v")
+  content       String?
+  createdAt     DateTime?       @default(now())
+  createdBy     String?
+  updatedAt     DateTime?       @updatedAt
+  updatedBy     String?
+  dueDateAt     DateTime?       @default(now())
+  priority      String
+  tags          Json?
+  title         String
+  likes         Int?            @default(0)
+  user          String?
+  comments      tasksComments[]
+  documents     Documents[]
+  assigned_user Users?          @relation(fields: [user], references: [id])
+  //CRM assigments
+  account       String?
+  crm_accounts  crm_Accounts?   @relation(fields: [account], references: [id])
+  //Staus
+  taskStatus    taskStatus?     @default(ACTIVE)
+}
+
+model tasksComments {
+  id                             String              @id @default(uuid())
+  v                              Int                 @map("__v")
+  comment                        String
+  createdAt                      DateTime            @default(now())
+  task                           String
+  user                           String
+  assigned_crm_account_task      String?
+  assigned_crm_account_task_task crm_Accounts_Tasks? @relation(fields: [assigned_crm_account_task], references: [id])
+  assigned_task                  Tasks?              @relation(fields: [task], references: [id], onDelete: Cascade)
+  assigned_user                  Users?              @relation(fields: [user], references: [id])
+}
+
+enum taskStatus {
+  ACTIVE
+  PENDING
+  COMPLETE
+}
+
+model TodoList {
+  id          String @id @default(uuid())
+  createdAt   String
+  description String
+  title       String
+  url         String
+  user        String
+}
+
+enum ActiveStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+}
+
+model Users {
+  id                   String                @id @default(uuid())
+  v                    Int                   @default(0) @map("__v")
+  account_name         String?
+  avatar               String?
+  email                String                @unique
+  is_account_admin     Boolean               @default(false)
+  is_admin             Boolean               @default(false)
+  created_on           DateTime              @default(now())
+  lastLoginAt          DateTime?
+  name                 String?
+  password             String?
+  username             String?
+  userStatus           ActiveStatus          @default(PENDING)
+  userLanguage         Language              @default(en)
+  tasksComment         tasksComments[]
+  created_by_documents Documents[]           @relation(name: "created_by_user")
+  assigned_documents   Documents[]           @relation(name: "assigned_to_user")
+  tasks                Tasks[]
+  crm_accounts_tasks   crm_Accounts_Tasks[]
+  accounts             crm_Accounts[]
+  leads                crm_Leads[]
+  created_by_user      crm_Opportunities[]   @relation(name: "created_by_user_relation")
+  assigned_opportunity crm_Opportunities[]   @relation(name: "assigned_to_user_relation")
+  assigned_contacts    crm_Contacts[]        @relation(name: "assigned_contacts")
+  crated_contacts      crm_Contacts[]        @relation(name: "created_contacts")
+  notion_account       secondBrain_notions[]
+  openAi_key           openAi_keys[]
+  assigned_invoices    Invoices[]
+  assigned_contracts   crm_Contracts[]
+  boards               Boards[]              @relation(name: "assigned_user")
+  watching_boardsIDs   String[]
+  watching_boards      Boards[]              @relation(name: "watching_users", fields: [watching_boardsIDs], references: [id])
+  watching_accountsIDs String[]
+  watching_accounts    crm_Accounts[]        @relation(name: "watching_accounts", fields: [watching_accountsIDs], references: [id])
+}
+
+enum Language {
+  cz
+  en
+  de
+  uk
+}
+
+model system_Modules_Enabled {
+  id       String  @id @default(uuid())
+  v        Int     @map("__v")
+  name     String
+  enabled  Boolean
+  position Int
+}
+
+model secondBrain_notions {
+  id             String @id @default(uuid())
+  v              Int    @map("__v")
+  user           String
+  notion_api_key String
+  notion_db_id   String
+  assigned_user  Users? @relation(fields: [user], references: [id])
+}
+
+model openAi_keys {
+  id              String @id @default(uuid())
+  v               Int    @map("__v")
+  user            String
+  organization_id String
+  api_key         String
+  assigned_user   Users? @relation(fields: [user], references: [id])
+}
+
+model systemServices {
+  id              String  @id @default(uuid())
+  v               Int     @map("__v")
+  name            String
+  serviceUrl      String?
+  serviceId       String?
+  serviceKey      String?
+  servicePassword String?
+  servicePort     String?
+  description     String?
+}
+
+model gpt_models {
+  id          String     @id @default(uuid())
+  v           Int        @map("__v")
+  model       String
+  description String?
+  status      gptStatus?
+  created_on  DateTime?  @default(now())
+}
+
+enum gptStatus {
+  ACTIVE
+  INACTIVE
 }

@@ -1,0 +1,184 @@
+// QR NextCRM Prisma Schema - Customized for Quarantine Restraints Logistics
+// Modified for PostgreSQL/Supabase instead of MongoDB
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Core User Management
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  name        String?
+  password    String?
+  role        String   @default("user")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // QR Relations
+  assignedOrders Order[] @relation("AssignedUser")
+  createdOrders  Order[] @relation("CreatedByUser")
+  
+  @@map("users")
+}
+
+// QR-Specific Order Management (Main CRM Entity)
+model Order {
+  id                    String   @id @default(uuid())
+  name                  String
+  poNumber              String?  @map("po_number")
+  customer              String?
+  customerEmail         String?  @map("customer_email")
+  orderValue            Decimal? @map("order_value") @db.Decimal(12,2)
+  orderDate             DateTime? @map("order_date")
+  shipDate              DateTime? @map("ship_date")
+  currentStatus         String?  @map("current_status")
+  originalEta           DateTime? @map("original_eta")
+  currentEta            DateTime? @map("current_eta")
+  customerToldDate      DateTime? @map("customer_told_date")
+  etaChanged            Boolean? @map("eta_changed") @default(false)
+  communicationStatus   String?  @map("communication_status")
+  actionNeeded          String?  @map("action_needed")
+  
+  // System fields
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+  createdBy             String?  @map("created_by")
+  assignedTo            String?  @map("assigned_to")
+  
+  // Relations
+  creator               User?    @relation("CreatedByUser", fields: [createdBy], references: [id])
+  assignee              User?    @relation("AssignedUser", fields: [assignedTo], references: [id])
+  
+  // Email communication history
+  emails                OrderEmail[]
+  
+  @@map("orders")
+}
+
+// Email Communications linked to Orders
+model OrderEmail {
+  id                String   @id @default(uuid())
+  orderId           String   @map("order_id")
+  emailId           String?  @map("email_id") // Link to external email system
+  subject           String
+  sender            String
+  recipient         String
+  content           String?
+  snippet           String?
+  emailDate         DateTime @map("email_date")
+  relevanceScore    Float?   @map("relevance_score")
+  
+  createdAt         DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  order             Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  @@map("order_emails")
+}
+
+// QR Product Categories
+model ProductCategory {
+  id                String @id @default(uuid())
+  name              String @unique
+  description       String?
+  
+  products          Product[]
+  
+  @@map("product_categories")
+}
+
+// QR Products
+model Product {
+  id                String @id @default(uuid())
+  name              String
+  sku               String? @unique
+  description       String?
+  categoryId        String? @map("category_id")
+  unitPrice         Decimal? @map("unit_price") @db.Decimal(10,2)
+  inStock           Boolean @default(true) @map("in_stock")
+  
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  category          ProductCategory? @relation(fields: [categoryId], references: [id])
+  orderItems        OrderItem[]
+  
+  @@map("products")
+}
+
+// Order Line Items
+model OrderItem {
+  id                String @id @default(uuid())
+  orderId           String @map("order_id")
+  productId         String? @map("product_id")
+  productName       String @map("product_name")
+  quantity          Int @default(1)
+  unitPrice         Decimal? @map("unit_price") @db.Decimal(10,2)
+  totalPrice        Decimal? @map("total_price") @db.Decimal(12,2)
+  
+  // Relations - Note: Order relation needs to be added to Order model
+  product           Product? @relation(fields: [productId], references: [id])
+  
+  @@map("order_items")
+}
+
+// QR Customer Management
+model Customer {
+  id                String @id @default(uuid())
+  name              String
+  company           String?
+  email             String? @unique
+  phone             String?
+  address           String?
+  city              String?
+  state             String?
+  country           String? @default("Canada")
+  postalCode        String? @map("postal_code")
+  
+  // Customer type (Government, Private, etc.)
+  customerType      String? @map("customer_type")
+  paymentTerms      String? @map("payment_terms")
+  creditLimit       Decimal? @map("credit_limit") @db.Decimal(10,2)
+  
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  
+  @@map("customers")
+}
+
+// System Configuration
+model SystemConfig {
+  id                String @id @default(uuid())
+  key               String @unique
+  value             String
+  description       String?
+  category          String? @default("general")
+  
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  
+  @@map("system_config")
+}
+
+// Communication Templates
+model EmailTemplate {
+  id                String @id @default(uuid())
+  name              String
+  subject           String
+  body              String
+  templateType      String @map("template_type") // order_confirmation, eta_update, etc.
+  active            Boolean @default(true)
+  
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  
+  @@map("email_templates")
+}
